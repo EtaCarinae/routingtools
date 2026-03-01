@@ -1,0 +1,50 @@
+import pytest
+
+from routetools.address_cleaner.normalizer import normalize
+
+_ABBREVS = {
+    "c/": "calle",
+    "avda.": "avenida",
+    "av.": "avenida",
+    "pº": "paseo",
+    "ctra.": "carretera",
+    "s/n": "sin número",
+    "pza.": "plaza",
+    "pol.": "poligono",
+    "urb.": "urbanizacion",
+}
+
+
+@pytest.mark.parametrize(
+    "raw, expected",
+    [
+        ("C/ Mayor 10, Madrid", "calle mayor 10, madrid"),
+        ("Avda. de la Constitución 5, Sevilla", "avenida de la constitución 5, sevilla"),
+        ("Pza. del Pilar s/n, Zaragoza", "plaza del pilar sin número, zaragoza"),
+        ("Ctra. Nacional II km 15", "carretera nacional ii km 15"),
+        ("Urb. Las Rosas Av. del Parque 3", "urbanizacion las rosas avenida del parque 3"),
+        ("  Gran  Vía   28  ", "gran vía 28"),
+        ("Pol. Industrial Norte", "poligono industrial norte"),
+    ],
+)
+def test_normalize_abbreviations(raw, expected):
+    result = normalize(raw, abbreviations=_ABBREVS)
+    assert result == expected
+
+
+def test_normalize_unicode_nfc():
+    # Precomposed vs decomposed é
+    decomposed = "calle cafe\u0301 1"
+    result = normalize(decomposed, abbreviations={})
+    import unicodedata
+    assert unicodedata.is_normalized("NFC", result)
+
+
+def test_normalize_collapses_whitespace():
+    result = normalize("  calle   mayor   10  ", abbreviations={})
+    assert result == "calle mayor 10"
+
+
+def test_normalize_lowercases():
+    result = normalize("GRAN VIA 28", abbreviations={})
+    assert result == "gran via 28"

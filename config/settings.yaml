@@ -1,0 +1,18 @@
+address_cleaner:
+  country_codes: "es"
+  quality_high_threshold: 0.80
+  quality_low_threshold: 0.50
+  nominatim_rps: 1.0
+  bbox_ceiling_deg2: 0.01
+  dedupe_decimal_places: 5
+  arbiter_model: "meta-llama/llama-3.3-70b-instruct:free"
+  abbreviations:
+    "c/": "calle"
+    "avda.": "avenida"
+    "av.": "avenida"
+    "pº": "paseo"
+    "ctra.": "carretera"
+    "s/n": "sin número"
+    "pza.": "plaza"
+    "pol.": "poligono"
+    "urb.": "urbanizacion"
