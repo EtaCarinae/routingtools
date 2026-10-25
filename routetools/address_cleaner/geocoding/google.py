@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import httpx
 
-from routetools.address_cleaner.geocoding.base import Geocoder
+from routetools.address_cleaner.errors import ProviderAuthError
+from routetools.address_cleaner.geocoding.base import Geocoder, pick_candidate
 from routetools.address_cleaner.models import AddressType, GeocodeResult, GeocodeSource
 
 _GEOCODE_URL = "https://maps.googleapis.com/maps/api/geocode/json"
@@ -27,9 +28,19 @@ def _parse_address_type(types: list[str]) -> AddressType:
 
 
 def _has_house_number(components: list[dict]) -> bool:
-    return any(
-        "street_number" in c.get("types", []) for c in components
-    )
+    return any("street_number" in c.get("types", []) for c in components)
+
+
+def _locality(components: list[dict]) -> str | None:
+    for c in components:
+        if "locality" in c.get("types", []):
+            return c.get("long_name")
+    return None
+
+
+def _coords(result: dict) -> tuple[float | None, float | None]:
+    location = result.get("geometry", {}).get("location", {})
+    return location.get("lat"), location.get("lng")
 
 
 def _viewport_area(viewport: dict) -> float | None:
@@ -48,7 +59,7 @@ class GoogleGeocoder(Geocoder):
         self._api_key = api_key
         self._region = region
 
-    async def geocode(self, address: str) -> GeocodeResult:
+    async def geocode(self, address: str, expected_locality: str | None = None) -> GeocodeResult:
         params = {
             "address": address,
             "key": self._api_key,
@@ -62,16 +73,16 @@ class GoogleGeocoder(Geocoder):
                 data = response.json()
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code in (401, 403):
-                raise
+                raise ProviderAuthError(
+                    f"Google rejected the API key (HTTP {exc.response.status_code})."
+                ) from None
             return GeocodeResult(source=GeocodeSource.failed, candidate_count=0)
-        except httpx.TimeoutException:
-            raise
         except Exception:
             return GeocodeResult(source=GeocodeSource.failed, candidate_count=0)
 
         status = data.get("status", "")
         if status == "REQUEST_DENIED":
-            raise PermissionError(f"Google Maps API denied: {data.get('error_message', '')}")
+            raise ProviderAuthError(f"Google Maps API denied: {data.get('error_message', '')}")
         if status not in ("OK", "ZERO_RESULTS"):
             return GeocodeResult(source=GeocodeSource.failed, candidate_count=0)
 
@@ -79,7 +90,12 @@ class GoogleGeocoder(Geocoder):
         if not results:
             return GeocodeResult(source=GeocodeSource.failed, candidate_count=0)
 
-        best = results[0]
+        best, distinct = pick_candidate(
+            results,
+            lambda r: _locality(r.get("address_components", [])),
+            _coords,
+            expected_locality,
+        )
         location = best.get("geometry", {}).get("location", {})
         viewport = best.get("geometry", {}).get("viewport")
         components = best.get("address_components", [])
@@ -94,6 +110,7 @@ class GoogleGeocoder(Geocoder):
             address_type=_parse_address_type(types),
             bbox_area_deg2=_viewport_area(viewport) if viewport else None,
             house_number_resolved=_has_house_number(components),
-            candidate_count=len(results),
+            locality=_locality(components),
+            candidate_count=distinct,
             raw_response=best,
         )

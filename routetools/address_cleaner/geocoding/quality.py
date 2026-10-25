@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from routetools.address_cleaner.models import AddressType, GeocodeResult
+from routetools.address_cleaner.normalizer import fold
 
 _TYPE_SCORES: dict[AddressType, float] = {
     AddressType.house: 1.0,
@@ -10,20 +11,41 @@ _TYPE_SCORES: dict[AddressType, float] = {
     AddressType.unknown: 0.0,
 }
 
+# Nominatim's `importance` is deliberately not used: it measures how notable a
+# place is (Wikipedia links), not how precise the match is — a correct
+# house-level hit scores ~0.0001.
 _WEIGHTS = {
-    "importance": 0.35,
-    "type": 0.30,
+    "type": 0.40,
+    "locality": 0.25,
     "bbox": 0.20,
-    "house_number": 0.10,
+    "house_number": 0.15,
 }
 
 _AMBIGUITY_PENALTY = -0.15
 
+# Used when the input names no locality or the result has none: neither
+# confirms nor contradicts the match.
+_LOCALITY_UNKNOWN = 0.5
 
-def score(result: GeocodeResult, bbox_ceiling_deg2: float = 0.01) -> float:
+
+def locality_match(result: GeocodeResult, expected_locality: str | None) -> float | None:
+    """1.0 if the result is in the locality the input asked for, 0.0 if it is
+    somewhere else, None if there is nothing to compare."""
+    if not expected_locality or not result.locality:
+        return None
+    return 1.0 if fold(expected_locality) == fold(result.locality) else 0.0
+
+
+def score(
+    result: GeocodeResult,
+    bbox_ceiling_deg2: float = 0.01,
+    expected_locality: str | None = None,
+) -> float:
     """Compute a quality score in [0.0, 1.0] for a geocode result."""
-    importance_score = result.importance or 0.0
     type_score = _TYPE_SCORES.get(result.address_type, 0.0)
+
+    match = locality_match(result, expected_locality)
+    locality_score = _LOCALITY_UNKNOWN if match is None else match
 
     if result.bbox_area_deg2 is not None:
         bbox_score = 1.0 - min(result.bbox_area_deg2 / bbox_ceiling_deg2, 1.0)
@@ -33,8 +55,8 @@ def score(result: GeocodeResult, bbox_ceiling_deg2: float = 0.01) -> float:
     house_number_score = 1.0 if result.house_number_resolved else 0.0
 
     raw = (
-        importance_score * _WEIGHTS["importance"]
-        + type_score * _WEIGHTS["type"]
+        type_score * _WEIGHTS["type"]
+        + locality_score * _WEIGHTS["locality"]
         + bbox_score * _WEIGHTS["bbox"]
         + house_number_score * _WEIGHTS["house_number"]
     )

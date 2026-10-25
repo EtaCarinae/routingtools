@@ -45,7 +45,9 @@ class AddressCleanerSettings(BaseSettings):
     nominatim_rps: float = _yaml.get("nominatim_rps", 1.0)
     bbox_ceiling_deg2: float = _yaml.get("bbox_ceiling_deg2", 0.01)
     dedupe_decimal_places: int = _yaml.get("dedupe_decimal_places", 5)
-    arbiter_model: str = _yaml.get("arbiter_model", "meta-llama/llama-3.3-70b-instruct:free")
+    # Second geocoder for low/grey-zone results: "opencage" or "google"
+    escalation_provider: str = _yaml.get("escalation_provider", "opencage")
+    arbiter_model: str = _yaml.get("arbiter_model", "mistralai/mistral-small-3.2-24b-instruct")
     abbreviations: dict[str, str] = _yaml.get(
         "abbreviations",
         {
@@ -54,7 +56,7 @@ class AddressCleanerSettings(BaseSettings):
             "av.": "avenida",
             "pº": "paseo",
             "ctra.": "carretera",
-            "s/n": "sin número",
+            "s/n": "",
             "pza.": "plaza",
             "pol.": "poligono",
             "urb.": "urbanizacion",

@@ -17,7 +17,6 @@ class GeocodeSource(StrEnum):
     nominatim = "nominatim"
     google = "google"
     opencage = "opencage"
-    llm = "llm"
     failed = "failed"
 
 
@@ -36,10 +35,12 @@ class GeocodeResult(BaseModel):
     address_type: AddressType = AddressType.unknown
     bbox_area_deg2: float | None = None
     house_number_resolved: bool = False
+    locality: str | None = None
+    # Distinct locations among the candidates (~100 m apart), not raw result count:
+    # several POIs in the same building are not ambiguity.
     candidate_count: int = 0
     raw_response: dict | None = Field(default=None, exclude=True)
     quality_score: float | None = None
-    needs_escalation: bool = False
 
 
 class NormalizedAddress(BaseModel):
@@ -50,7 +51,7 @@ class NormalizedAddress(BaseModel):
     flagged: bool = False
     flag_reason: str | None = None
     dedupe_cluster_id: str | None = None
-    escalated_to_google: bool = False
+    escalated: bool = False
     arbiter_consulted: bool = False
     arbiter_rationale: str | None = None
 

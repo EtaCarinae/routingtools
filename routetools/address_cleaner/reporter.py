@@ -10,7 +10,7 @@ from routetools.address_cleaner.models import CleaningReport, NormalizedAddress
 def build_summary(results: list[NormalizedAddress]) -> dict:
     total = len(results)
     flagged = sum(1 for r in results if r.flagged)
-    escalated = sum(1 for r in results if r.escalated_to_google)
+    escalated = sum(1 for r in results if r.escalated)
     arbiter_consulted = sum(1 for r in results if r.arbiter_consulted)
     failed = sum(1 for r in results if r.geocode.source.value == "failed")
     sources: dict[str, int] = {}
@@ -24,7 +24,7 @@ def build_summary(results: list[NormalizedAddress]) -> dict:
     return {
         "total": total,
         "flagged": flagged,
-        "escalated_to_google": escalated,
+        "escalated": escalated,
         "arbiter_consulted": arbiter_consulted,
         "geocode_failed": failed,
         "geocode_sources": sources,
@@ -45,12 +45,13 @@ def report_to_csv(report: CleaningReport) -> str:
         "formatted_address",
         "lat",
         "lon",
+        "locality",
         "geocode_source",
         "quality_score",
         "confidence",
         "flagged",
         "flag_reason",
-        "escalated_to_google",
+        "escalated",
         "arbiter_consulted",
         "arbiter_rationale",
         "dedupe_cluster_id",
@@ -65,6 +66,7 @@ def report_to_csv(report: CleaningReport) -> str:
                 "formatted_address": r.geocode.formatted_address or "",
                 "lat": r.geocode.lat if r.geocode.lat is not None else "",
                 "lon": r.geocode.lon if r.geocode.lon is not None else "",
+                "locality": r.geocode.locality or "",
                 "geocode_source": r.geocode.source.value,
                 "quality_score": r.geocode.quality_score
                 if r.geocode.quality_score is not None
@@ -72,7 +74,7 @@ def report_to_csv(report: CleaningReport) -> str:
                 "confidence": r.confidence,
                 "flagged": r.flagged,
                 "flag_reason": r.flag_reason or "",
-                "escalated_to_google": r.escalated_to_google,
+                "escalated": r.escalated,
                 "arbiter_consulted": r.arbiter_consulted,
                 "arbiter_rationale": r.arbiter_rationale or "",
                 "dedupe_cluster_id": r.dedupe_cluster_id or "",

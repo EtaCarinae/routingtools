@@ -5,14 +5,15 @@ address_cleaner:
   nominatim_rps: 1.0
   bbox_ceiling_deg2: 0.01
   dedupe_decimal_places: 5
-  arbiter_model: "meta-llama/llama-3.3-70b-instruct:free"
+  escalation_provider: "opencage"   # opencage | google
+  arbiter_model: "mistralai/mistral-small-3.2-24b-instruct"
   abbreviations:
     "c/": "calle"
     "avda.": "avenida"
     "av.": "avenida"
     "pº": "paseo"
     "ctra.": "carretera"
-    "s/n": "sin número"
+    "s/n": ""
     "pza.": "plaza"
     "pol.": "poligono"
     "urb.": "urbanizacion"

@@ -24,3 +24,9 @@ htmlcov/
 # Output
 *.jsonl
 output/
+
+# Windows (WSL) metadata
+*:Zone.Identifier
+
+# Local agent settings
+.claude/settings.local.json

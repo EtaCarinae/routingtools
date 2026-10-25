@@ -2,17 +2,18 @@ from __future__ import annotations
 
 import httpx
 
-from routetools.address_cleaner.geocoding.base import Geocoder
+from routetools.address_cleaner.errors import ProviderAuthError
+from routetools.address_cleaner.geocoding.base import Geocoder, pick_candidate
 from routetools.address_cleaner.models import AddressType, GeocodeResult, GeocodeSource
 
 _GEOCODE_URL = "https://api.opencagedata.com/geocode/v1/json"
 
 # OpenCage confidence is 0–10; map to AddressType by component presence
 _CONFIDENCE_TYPE: list[tuple[int, AddressType]] = [
-    (9, AddressType.house),   # 9–10: street-number precision
-    (7, AddressType.road),    # 7–8: road level
+    (9, AddressType.house),  # 9–10: street-number precision
+    (7, AddressType.road),  # 7–8: road level
     (5, AddressType.suburb),  # 5–6: suburb/neighbourhood
-    (1, AddressType.city),    # 1–4: city or coarser
+    (1, AddressType.city),  # 1–4: city or coarser
 ]
 
 
@@ -54,6 +55,17 @@ def _bbox_area(bounds: dict | None) -> float | None:
         return None
 
 
+def _locality(result: dict) -> str | None:
+    components = result.get("components", {})
+    keys = ("city", "town", "village", "municipality")
+    return next((components[k] for k in keys if components.get(k)), None)
+
+
+def _coords(result: dict) -> tuple[float | None, float | None]:
+    geometry = result.get("geometry", {})
+    return geometry.get("lat"), geometry.get("lng")
+
+
 def _confidence_to_importance(confidence: int) -> float:
     """Normalise OpenCage confidence (0–10) to Nominatim-style importance (0.0–1.0)."""
     return min(confidence / 10.0, 1.0)
@@ -64,12 +76,12 @@ class OpenCageGeocoder(Geocoder):
         self._api_key = api_key
         self._country_code = country_code
 
-    async def geocode(self, address: str) -> GeocodeResult:
+    async def geocode(self, address: str, expected_locality: str | None = None) -> GeocodeResult:
         params = {
             "q": address,
             "key": self._api_key,
             "countrycode": self._country_code,
-            "limit": "3",
+            "limit": "5",
             "no_annotations": "1",
             "language": "es",
         }
@@ -81,10 +93,11 @@ class OpenCageGeocoder(Geocoder):
                 data = response.json()
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code in (401, 402, 403):
-                raise
+                raise ProviderAuthError(
+                    f"OpenCage rejected the API key (HTTP {exc.response.status_code}). "
+                    "Check OPENCAGE_API_KEY or your daily quota."
+                ) from None
             return GeocodeResult(source=GeocodeSource.failed, candidate_count=0)
-        except httpx.TimeoutException:
-            raise
         except Exception:
             return GeocodeResult(source=GeocodeSource.failed, candidate_count=0)
 
@@ -92,7 +105,7 @@ class OpenCageGeocoder(Geocoder):
         if not results:
             return GeocodeResult(source=GeocodeSource.failed, candidate_count=0)
 
-        best = results[0]
+        best, distinct = pick_candidate(results, _locality, _coords, expected_locality)
         geometry = best.get("geometry", {})
         bounds = best.get("bounds")
         confidence = best.get("confidence", 0)
@@ -106,6 +119,7 @@ class OpenCageGeocoder(Geocoder):
             address_type=_parse_address_type(best),
             bbox_area_deg2=_bbox_area(bounds),
             house_number_resolved=_has_house_number(best),
-            candidate_count=len(results),
+            locality=_locality(best),
+            candidate_count=distinct,
             raw_response=best,
         )
