@@ -68,6 +68,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     for fmt, path in save_report(report, args.output_dir, formats=args.format).items():
         print(f"Reporte {fmt.upper()}: {path}", file=sys.stderr)
+    print("Geodatos © OpenStreetMap contributors (ODbL)", file=sys.stderr)
     return 0
 
 

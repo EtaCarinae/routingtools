@@ -126,7 +126,7 @@ cp .env.example .env
 
 | Variable | Para qué | Obligatoria |
 |---|---|---|
-| `NOMINATIM_USER_AGENT` | Identificarte ante OpenStreetMap ([política de uso](https://operations.osmfoundation.org/policies/nominatim/)) | Sí |
+| `NOMINATIM_USER_AGENT` | Identificarte ante OpenStreetMap con un email o la URL de tu proyecto. No es una API key: Nominatim no usa ([política de uso](https://operations.osmfoundation.org/policies/nominatim/)) | Sí |
 | `OPENROUTER_API_KEY` | LLM árbitro ([openrouter.ai](https://openrouter.ai) → Keys) | No |
 | `OPENCAGE_API_KEY` | Segundo geocoder ([opencagedata.com](https://opencagedata.com/users/sign_up); 2.500 consultas/día gratis) | No |
 | `GOOGLE_MAPS_API_KEY` | Segundo geocoder alternativo, con `escalation_provider: google` | No |
@@ -237,6 +237,18 @@ routetools/address_cleaner/
 └── arbiter/llm_arbiter.py         prompt, function calling, validación, reintentos
 tests/address_cleaner/
 ```
+
+## Datos y atribución
+
+- Los resultados de Nominatim son datos de **© [OpenStreetMap contributors](https://www.openstreetmap.org/copyright)**,
+  bajo licencia [ODbL](https://opendatacommons.org/licenses/odbl/). Si publicás o mostrás
+  coordenadas obtenidas con esta herramienta, incluí esa atribución.
+- El servidor público de Nominatim no usa API key, pero tiene una
+  [política de uso](https://operations.osmfoundation.org/policies/nominatim/): User-Agent que
+  te identifique (`NOMINATIM_USER_AGENT`, con un email o la URL de tu proyecto), como máximo
+  1 consulta por segundo (la herramienta lo respeta) y nada de uso masivo. Para volúmenes
+  grandes, levantá tu propia instancia de Nominatim.
+- OpenCage y Google tienen sus propios términos; revisalos antes de usar sus resultados.
 
 ## Limitaciones y próximos pasos
 
